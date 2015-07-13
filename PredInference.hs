@@ -24,12 +24,12 @@ unify x' y' = unify_ x' y' (Just [])
   where unify_ x y s
           | Nothing <- s = Nothing
           | x == y       = s
-          | V vx <- x  = s >>= unifyVar x y
-          | V vy <- y  = s >>= unifyVar y x
+          | V vx <- x    = s >>= unifyVar x y
+          | V vy <- y    = s >>= unifyVar y x
           -- unify preds / function names
           | F px argx <- x, F py argy <- y, px == py, length argx == length argy
             = foldr (\(xa,ya) acc -> unify_ xa ya acc) s $ zip argx argy
-          | otherwise = Nothing
+          | otherwise    = Nothing
         unifyVar var@(V vname) x s
           | Just val <- lookup vname s               = unify_ val x (Just s)
           | V xname <- x, Just val <- lookup xname s = unify_ var val (Just s)

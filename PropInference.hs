@@ -59,7 +59,14 @@ contraLitIn (LNot s) xs = (LSym s) `elem` xs
 propToCNF :: Prop -> CNF
 propToCNF = filterClauses . propToCNF_
   where propToCNF_ (Sym s) = [[LSym s]]
+        -- given P ^ Q and CNF(P) = P1 ^ P2 ^ ..., CNF(Q) = Q1 ^ Q2 ^ ...
+        -- CNF(P ^ Q) = P1 ^ P2 ^ ... ^ Q1 ^ Q2 ...
         propToCNF_ (And conjuncts) = conjuncts >>= propToCNF
+        -- follows distributivity laws
+        -- given P1 v P2 v ... and
+        -- CNF(P1) = P11 ^ P12 ^ ..., CNF(P2) = P21 ^ P22 ^ ...
+        -- then CNF(P1 v P2 v ..) = (P11 v P21 v ...) ^ (P11 v P22 v ...) ^ ...
+        -- i.e., conjuncts are cartesian products of CNF(Pi)
         propToCNF_ (Or disjuncts) = map (>>= id) $ sequence $ map propToCNF disjuncts
         -- negation elim
         propToCNF_ (Not (Not (Sym s))) = [[LSym s]]
@@ -88,17 +95,19 @@ resolution cnf
   -- no new clauses = sat
   | all (flip elem cnf) cnf' = Just $ extractModel $ nub $ cnf' >>= id
   | otherwise = resolution cnf'
-
-  where cnf' = if length cnf > 1 then map (uncurry resolve) $ pairs cnf else cnf
-        pairs []         = []
-        pairs (x:xs)     = map ((,) x) xs ++ pairs xs
-        resolve x y      = nub $ removeContra $ x ++ y
-        removeContra cnf = filter (\c -> not $ c `contraLitIn` cnf) cnf
+  where cnf'
+          | length cnf > 1 = map (uncurry resolve) $ pairs cnf
+          | otherwise      = cnf
+        pairs []           = []
+        pairs (x:xs)       = map ((,) x) xs ++ pairs xs
+        resolve x y        = nub $ removeContra $ x ++ y
+        removeContra cnf   = filter (\c -> not $ c `contraLitIn` cnf) cnf
         -- all literals are guaranteed to be pure since we stop resolution
+        -- before calling extractModel
+        -- (i.e., resolution removes all contradictory literals)
         extractModel []            = []
         extractModel ((LSym s):xs) = (s,True):(extractModel xs)
         extractModel ((LNot s):xs) = (s,False):(extractModel xs)
-
 
 main = do
   let p = propToCNF $ ((Sym "P") `Iff` (Sym "Q")) `If` (Or [Sym "R", Sym "S"])
